@@ -8,6 +8,17 @@
 	static SPISettings ILI9163C_SPI;
 #endif
 
+/*
+	        2019-06-24 - I noticed the clearScreen and plotting functions left trash at 
+	        the top of the display. In addition the first couple of pixels were not plotting
+	        on the display (X and Y). Also the max pixels were not addressable leaving trash.
+	        
+	        To resole the issues I've created both X and Y offsets, tweaked the values so they
+	        work (for me), set screen height to 128 and tweaked the clearScreen function. --> see TFT_ILI9163C_settings.h
+	        
+	        
+	        db 
+*/
 
 //constructors
 
@@ -507,8 +518,8 @@ void TFT_ILI9163C::chipInit() {
 		writedata16_cont(_GRAMHEIGH); 
 		// set scroll area (thanks Masuda)
 		writecommand_cont(CMD_VSCLLDEF);
-		writedata16_cont(__OFFSET);
-		writedata16_cont(_GRAMHEIGH - __OFFSET);
+		writedata16_cont(__OFFSETY);
+		writedata16_cont(_GRAMHEIGH - __OFFSETY);
 		writedata16_last(0);
 		
 		SPI.endTransaction();
@@ -596,8 +607,8 @@ void TFT_ILI9163C::chipInit() {
 		writedata16(_GRAMHEIGH);
 		// set scroll area (thanks Masuda)
 		writecommand(CMD_VSCLLDEF);
-		writedata16(__OFFSET);
-		writedata16(_GRAMHEIGH - __OFFSET);
+		writedata16(__OFFSETY);
+		writedata16(_GRAMHEIGH - __OFFSETY);
 		writedata16(0);
 		
 		colorSpace(_colorspaceData);
@@ -702,7 +713,7 @@ void TFT_ILI9163C::sleepMode(boolean mode) {
 }
 
 void TFT_ILI9163C::defineScrollArea(uint16_t tfa, uint16_t bfa){
-    tfa += __OFFSET;
+    tfa += __OFFSETY;
     int16_t vsa = _GRAMHEIGH - tfa - bfa;
     if (vsa >= 0) {
 		#if defined(__MK20DX128__) || defined(__MK20DX256__)
@@ -726,11 +737,11 @@ void TFT_ILI9163C::scroll(uint16_t adrs) {
 	#if defined(__MK20DX128__) || defined(__MK20DX256__)
 		SPI.beginTransaction(ILI9163C_SPI);
 		writecommand_cont(CMD_VSSTADRS);
-		writedata16_last(adrs + __OFFSET);
+		writedata16_last(adrs + __OFFSETY);
 		SPI.endTransaction();
 	#else
 		writecommand(CMD_VSSTADRS);
-		writedata16(adrs + __OFFSET);
+		writedata16(adrs + __OFFSETY);
 	#endif
 	}
 }
@@ -741,15 +752,15 @@ void TFT_ILI9163C::clearScreen(uint16_t color) {
 	int px;
 	#if defined(__MK20DX128__) || defined(__MK20DX256__)
 		SPI.beginTransaction(ILI9163C_SPI);
-		_setAddrWindow(0x00,0x00,_GRAMWIDTH,_GRAMHEIGH);
-		for (px = 0;px < _GRAMSIZE; px++){
+		_setAddrWindow(0,0,_GRAMWIDTH,_GRAMHEIGH);
+		for (px = 0;px < _GRAMSIZE+_GRAMWIDTH; px++){
 			writedata16_cont(color);
 		}
 		writecommand_last(CMD_NOP);
 		SPI.endTransaction();
 	#else
-		setAddr(0x00,0x00,_GRAMWIDTH,_GRAMHEIGH);//go home
-		for (px = 0;px < _GRAMSIZE; px++){
+		setAddr(0,0,_GRAMWIDTH,_GRAMHEIGH);//go home
+		for (px = 0;px < _GRAMSIZE+_GRAMWIDTH; px++){
 			writedata16(color);
 		}
 	#endif
@@ -827,6 +838,9 @@ void TFT_ILI9163C::setCursor(int16_t x, int16_t y) {
 void TFT_ILI9163C::drawPixel(int16_t x, int16_t y, uint16_t color) {
 	if (boundaryCheck(x,y)) return;
 	if ((x < 0) || (y < 0)) return;
+	 
+ 
+	  
 	setAddr(x,y,x+1,y+1);
 	#if defined(__MK20DX128__) || defined(__MK20DX256__)
 		writedata16_last(color);
@@ -916,6 +930,8 @@ void TFT_ILI9163C::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t
 
 #if defined(__MK20DX128__) || defined(__MK20DX256__)
 void TFT_ILI9163C::drawLine(int16_t x0, int16_t y0,int16_t x1, int16_t y1, uint16_t color){
+ 
+ 
 	if (y0 == y1) {
 		if (x1 > x0) {
 			drawFastHLine(x0, y0, x1 - x0 + 1, color);
@@ -1012,8 +1028,11 @@ void TFT_ILI9163C::drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t
 	SPI.endTransaction();
 }
 
-
 #endif
+
+/*
+    Note the addition of __OFFSETY and __OFFSETX the routines below: (db)
+*/
 
 void TFT_ILI9163C::setAddr(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1){
 	#if defined(__MK20DX128__) || defined(__MK20DX256__)
@@ -1032,20 +1051,20 @@ void TFT_ILI9163C::setAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t
 	#else
 		writecommand(CMD_CLMADRS); // Column
 		if (rotation == 0 || rotation > 1){
-			writedata16(x0);
-			writedata16(x1);
+		  writedata16(x0 + __OFFSETX);
+			writedata16(x1 + __OFFSETX);
 		} else {
-			writedata16(x0 + __OFFSET);
-			writedata16(x1 + __OFFSET);
+			writedata16(x0 + __OFFSETX);
+			writedata16(x1 + __OFFSETX);
 		}
 
 		writecommand(CMD_PGEADRS); // Page
 		if (rotation == 0){
-			writedata16(y0 + __OFFSET);
-			writedata16(y1 + __OFFSET);
+			writedata16(y0 + __OFFSETY);
+			writedata16(y1 + __OFFSETY);
 		} else {
-			writedata16(y0);
-			writedata16(y1);
+			writedata16(y0 + __OFFSETY);
+			writedata16(y1 + __OFFSETY);
 		}
 		writecommand(CMD_RAMWR); //Into RAM
 	#endif
@@ -1055,19 +1074,19 @@ void TFT_ILI9163C::setAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t
 void TFT_ILI9163C::_setAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1) {
 	writecommand_cont(CMD_CLMADRS); // Column
 	if (rotation == 0 || rotation > 1){
-		writedata16_cont(x0);
-		writedata16_cont(x1);
+			writedata16(y0 + __OFFSETY);
+			writedata16(y1 + __OFFSETY); 
 	} else {
-		writedata16_cont(x0 + __OFFSET);
-		writedata16_cont(x1 + __OFFSET);
+		writedata16_cont(x0 + __OFFSETX);
+		writedata16_cont(x1 + __OFFSETX);
 	}
 	writecommand_cont(CMD_PGEADRS); // Page
 	if (rotation == 0){
-		writedata16_cont(y0 + __OFFSET);
-		writedata16_cont(y1 + __OFFSET);
+		writedata16_cont(y0 + __OFFSETY);
+		writedata16_cont(y1 + __OFFSETY);
 	} else {
-		writedata16_cont(y0);
-		writedata16_cont(y1);
+			writedata16(y0 + __OFFSETY);
+			writedata16(y1 + __OFFSETY); 
 	}
 	writecommand_cont(CMD_RAMWR); //Into RAM
 }
