@@ -3,7 +3,11 @@ TFT_ILI9163C
 A fast SPI driver for TFT that use Ilitek ILI9163C driver for Arduino's Teensy's and more...
 
 Version 10.0a (?)
-This fork contains fixes for the trash at the top of the display as well as the non-addressable pixels all around the screen. Changes were targeted at the "red" ILI9163c display. No major chnages just tweaks to the X and Y offsets etc. Note the 
+
+This fork contains fixes for the trash at the top of the display as well as the non-addressable pixels all around the screen. Changes were targeted at the "red" ILI9163c display. No major chnages just tweaks to the X and Y offsets etc. 
+
+See the ili9163c-Beforeafter.jpg.
+
 db
 
 Current release: 0.9 (old! see below!)
